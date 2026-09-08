@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Level Surface and Tangent Plane</title>
+<style>
+:root{--text:#111827;--muted:#6b7280;--border:#d1d5db;--card:#fff;--accent-bg:#dbeafe}
+*{box-sizing:border-box} body{margin:0;background:#fff;color:var(--text);font-family:Arial,"Noto Sans KR",sans-serif}
+.wrap{max-width:1160px;margin:0 auto;padding:20px} h1{font-size:26px;margin:0 0 14px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px;align-items:start}
+.viz,.card{border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.viz{padding:10px} canvas{display:block;width:100%;height:auto;background:#fff;border-radius:10px}
+.side{display:grid;gap:12px}.card{padding:12px}.label{font-weight:700;margin-bottom:7px}
+input[type=range]{width:100%}.muted{color:var(--muted);font-size:14px}
+.math{font-family:Consolas,Monaco,monospace;font-size:15px;line-height:1.75}
+.legend{display:grid;gap:7px;font-size:14px}.legend span{display:flex;align-items:center;gap:8px}
+.swatch{width:18px;height:4px;border-radius:4px;display:inline-block}
+.plane-swatch{width:18px;height:12px;background:rgba(245,158,11,.24);border:1px solid #d97706}
+button{min-height:40px;padding:8px 13px;border:1px solid var(--border);border-radius:9px;background:var(--accent-bg);color:var(--text);cursor:pointer;font-size:14px}
+@media(max-width:840px){.layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<h1>Level Surface and Tangent Plane</h1>
+<div class="layout">
+<section class="viz">
+<canvas id="cv" width="800" height="650" aria-label="level surface, tangent plane, normal vector, and normal line visualization"></canvas>
+</section>
+
+<aside class="side">
+<section class="card"><div class="math">
+f(x,y,z) = x² + y² + z²<br>
+level surface: f = 4
+</div></section>
+
+<section class="card">
+<div class="label">Point P on the surface</div>
+<div class="muted">θ = <span id="thetaVal">50.0</span>°</div>
+<input id="theta" type="range" min="5" max="175" step="1" value="50">
+<div class="muted" style="margin-top:8px">φ = <span id="phiVal">35.0</span>°</div>
+<input id="phi" type="range" min="0" max="360" step="1" value="35">
+</section>
+
+<section class="card"><div class="math">
+P = <span id="ptxt"></span><br><br>
+∇f(P) = <span id="ntxt"></span><br><br>
+tangent plane:<br><span id="planeTxt"></span><br><br>
+normal line:<br><span id="lineTxt"></span>
+</div></section>
+
+<section class="card"><div class="legend">
+<span><i class="swatch" style="background:#94a3b8"></i> level surface</span>
+<span><i class="plane-swatch"></i> tangent plane</span>
+<span><i class="swatch" style="background:#2563eb"></i> normal vector ∇f</span>
+<span><i class="swatch" style="background:#059669"></i> normal line</span>
+</div></section>
+
+<button id="reset" type="button">초기화</button>
+</aside>
+</div>
+</main>
+
+<script>
+(() => {
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const theta=document.getElementById('theta'),phi=document.getElementById('phi');
+const thetaVal=document.getElementById('thetaVal'),phiVal=document.getElementById('phiVal');
+const ptxt=document.getElementById('ptxt'),ntxt=document.getElementById('ntxt');
+const planeTxt=document.getElementById('planeTxt'),lineTxt=document.getElementById('lineTxt');
+const reset=document.getElementById('reset');
+let yaw=-0.65,pitch=0.45,dragging=false,lastX=0,lastY=0;
+const R=2;
+
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const norm=a=>Math.hypot(a[0],a[1],a[2]);
+const unit=a=>{const n=norm(a);return[a[0]/n,a[1]/n,a[2]/n];};
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+
+function currentPoint(){
+  const th=Number(theta.value)*Math.PI/180, ph=Number(phi.value)*Math.PI/180;
+  return [R*Math.sin(th)*Math.cos(ph),R*Math.sin(th)*Math.sin(ph),R*Math.cos(th)];
+}
+function rotate(P){
+  let[x,y,z]=P; const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+  const x1=cy*x+sy*z,z1=-sy*x+cy*z,y1=y;
+  return [x1,cp*y1-sp*z1,sp*y1+cp*z1];
+}
+function project(P){const q=rotate(P),s=115;return[cv.width/2+q[0]*s,cv.height/2-q[1]*s,q[2]];}
+function drawLine3(a,b,color,width=2,dash=[]){
+  const A=project(a),B=project(b);ctx.save();ctx.setLineDash(dash);
+  ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();ctx.restore();
+}
+function drawArrow3(pos,v,color,label,scale=1){
+  const end=add(pos,mul(v,scale)),A=project(pos),B=project(end);
+  ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.strokeStyle=color;ctx.lineWidth=4;ctx.stroke();
+  const dx=B[0]-A[0],dy=B[1]-A[1],L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,px=-uy,py=ux,s=12;
+  ctx.beginPath();ctx.moveTo(B[0],B[1]);ctx.lineTo(B[0]-ux*s+px*6,B[1]-uy*s+py*6);ctx.lineTo(B[0]-ux*s-px*6,B[1]-uy*s-py*6);ctx.closePath();
+  ctx.fillStyle=color;ctx.fill();ctx.font='bold 17px Arial';ctx.fillText(label,B[0]+8,B[1]-8);
+}
+function drawAxes(){
+  drawLine3([-2.8,0,0],[2.8,0,0],'#cbd5e1',1);
+  drawLine3([0,-2.8,0],[0,2.8,0],'#cbd5e1',1);
+  drawLine3([0,0,-2.8],[0,0,2.8],'#cbd5e1',1);
+}
+function drawSphere(){
+  for(let j=1;j<8;j++){
+    const th=Math.PI*j/8,z=R*Math.cos(th),rr=R*Math.sin(th);
+    ctx.beginPath();
+    for(let i=0;i<=160;i++){
+      const a=2*Math.PI*i/160,P=project([rr*Math.cos(a),rr*Math.sin(a),z]);
+      if(i===0)ctx.moveTo(P[0],P[1]);else ctx.lineTo(P[0],P[1]);
+    }
+    ctx.strokeStyle='rgba(100,116,139,0.34)';ctx.lineWidth=1.1;ctx.stroke();
+  }
+  for(let j=0;j<12;j++){
+    const ph=2*Math.PI*j/12;ctx.beginPath();
+    for(let i=0;i<=160;i++){
+      const th=Math.PI*i/160,P=project([R*Math.sin(th)*Math.cos(ph),R*Math.sin(th)*Math.sin(ph),R*Math.cos(th)]);
+      if(i===0)ctx.moveTo(P[0],P[1]);else ctx.lineTo(P[0],P[1]);
+    }
+    ctx.strokeStyle='rgba(100,116,139,0.28)';ctx.lineWidth=1;ctx.stroke();
+  }
+}
+function tangentBasis(n){
+  const helper=Math.abs(n[2])<0.9?[0,0,1]:[1,0,0];
+  const e1=unit(cross(n,helper)),e2=unit(cross(n,e1));return[e1,e2];
+}
+function drawPlane(P,n){
+  const [e1,e2]=tangentBasis(n),s=0.95;
+  const c=[add(add(P,mul(e1,s)),mul(e2,s)),add(add(P,mul(e1,-s)),mul(e2,s)),add(add(P,mul(e1,-s)),mul(e2,-s)),add(add(P,mul(e1,s)),mul(e2,-s))].map(project);
+  ctx.beginPath();ctx.moveTo(c[0][0],c[0][1]);for(let i=1;i<4;i++)ctx.lineTo(c[i][0],c[i][1]);ctx.closePath();
+  ctx.fillStyle='rgba(245,158,11,0.22)';ctx.fill();ctx.strokeStyle='#d97706';ctx.lineWidth=1.8;ctx.stroke();
+}
+function render(){
+  ctx.clearRect(0,0,cv.width,cv.height);ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);
+  drawAxes();drawSphere();
+  const P=currentPoint(),grad=[2*P[0],2*P[1],2*P[2]],n=unit(grad);
+  drawPlane(P,n);drawLine3(add(P,mul(n,-1.55)),add(P,mul(n,1.55)),'#059669',2.4,[7,5]);
+  const Q=project(P);ctx.beginPath();ctx.arc(Q[0],Q[1],7,0,2*Math.PI);ctx.fillStyle='#111827';ctx.fill();ctx.font='bold 15px Arial';ctx.fillText('P',Q[0]+9,Q[1]-8);
+  drawArrow3(P,n,'#2563eb','∇f',1.15);
+
+  thetaVal.textContent=Number(theta.value).toFixed(1);phiVal.textContent=Number(phi.value).toFixed(1);
+  ptxt.textContent=`(${P.map(v=>v.toFixed(3)).join(', ')})`;
+  ntxt.textContent=`(${grad.map(v=>v.toFixed(3)).join(', ')})`;
+  planeTxt.textContent=`${P[0].toFixed(3)}x + ${P[1].toFixed(3)}y + ${P[2].toFixed(3)}z = 4`;
+  lineTxt.textContent=`r(s) = P + s(${n.map(v=>v.toFixed(3)).join(', ')})`;
+}
+[theta,phi].forEach(el=>el.addEventListener('input',render));
+cv.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;yaw+=dx*0.008;pitch=Math.max(-1.25,Math.min(1.25,pitch+dy*0.008));render();});
+cv.addEventListener('pointerup',e=>{dragging=false;try{cv.releasePointerCapture(e.pointerId);}catch(_){}});
+reset.addEventListener('click',()=>{theta.value='50';phi.value='35';yaw=-0.65;pitch=0.45;render();});
+render();
+})();
+</script>
+</body>
+</html>
