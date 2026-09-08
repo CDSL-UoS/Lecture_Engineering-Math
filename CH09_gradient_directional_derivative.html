@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gradient and Directional Derivative</title>
+  <style>
+    :root{
+      --bg:#ffffff; --card:#ffffff; --text:#111827;
+      --muted:#6b7280; --border:#d1d5db; --accent-bg:#dbeafe;
+      --grad:#2563eb; --dir:#dc2626; --curve:#475569; --tan:#059669;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family:Arial,"Noto Sans KR",sans-serif;
+    }
+    .wrap{max-width:1180px;margin:0 auto;padding:20px}
+    h1{font-size:26px;margin:0 0 14px}
+    .layout{
+      display:grid;grid-template-columns:minmax(0,1fr) 300px;
+      gap:16px;align-items:start;
+    }
+    .viz,.card{
+      border:1px solid var(--border);border-radius:14px;background:var(--card);
+    }
+    .viz{padding:10px}
+    canvas{display:block;width:100%;height:auto;background:#fff;border-radius:10px}
+    .side{display:grid;gap:12px}
+    .card{padding:12px}
+    .label{font-weight:700;margin-bottom:7px}
+    input[type=range]{width:100%}
+    .muted{color:var(--muted);font-size:14px}
+    .math{
+      font-family:Consolas,Monaco,monospace;
+      font-size:15px;line-height:1.75;
+    }
+    .legend{display:grid;gap:7px;font-size:14px}
+    .legend span{display:flex;align-items:center;gap:8px}
+    .swatch{width:18px;height:4px;border-radius:4px;display:inline-block}
+    .buttons{display:flex;gap:8px;flex-wrap:wrap}
+    button{
+      min-height:40px;padding:8px 13px;border:1px solid var(--border);
+      border-radius:9px;background:#fff;color:var(--text);cursor:pointer;font-size:14px;
+    }
+    button.primary{background:var(--accent-bg)}
+    .lower{
+      margin-top:16px;display:grid;grid-template-columns:minmax(0,1fr) 300px;
+      gap:16px;align-items:start;
+    }
+    @media(max-width:850px){
+      .layout,.lower{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Gradient and Directional Derivative</h1>
+
+  <div class="layout">
+    <section class="viz">
+      <canvas id="contour" width="780" height="620"
+              aria-label="등고선, gradient, direction vector 시각화"></canvas>
+    </section>
+
+    <aside class="side">
+      <section class="card">
+        <div class="math">
+          f(x,y) = x² + 2y²
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="label">Point P = (x, y)</div>
+
+        <div class="muted">x = <span id="xval">1.20</span></div>
+        <input id="xslider" type="range" min="-2.3" max="2.3" step="0.01" value="1.2">
+
+        <div class="muted" style="margin-top:8px">y = <span id="yval">0.80</span></div>
+        <input id="yslider" type="range" min="-2.0" max="2.0" step="0.01" value="0.8">
+      </section>
+
+      <section class="card">
+        <div class="label">Direction angle θ</div>
+        <div class="muted">θ = <span id="thetaval">35.0</span>°</div>
+        <input id="thetaslider" type="range" min="0" max="360" step="1" value="35">
+      </section>
+
+      <section class="card">
+        <div class="math">
+          ∇f = <span id="gradtxt"></span><br>
+          u = <span id="utxt"></span><br><br>
+          D<sub>u</sub>f = ∇f · u<br>
+          = <span id="ddtxt"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="legend">
+          <span><i class="swatch" style="background:#2563eb"></i> ∇f</span>
+          <span><i class="swatch" style="background:#dc2626"></i> u</span>
+        </div>
+      </section>
+
+      <div class="buttons">
+        <button id="align" class="primary" type="button">u ∥ ∇f</button>
+        <button id="perp" type="button">u ⟂ ∇f</button>
+        <button id="reset" type="button">초기화</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="lower">
+    <section class="viz">
+      <canvas id="slice" width="780" height="330"
+              aria-label="방향벡터 방향의 단면과 directional derivative"></canvas>
+    </section>
+
+    <section class="card">
+      <div class="math">
+        g(s) = f(P + su)<br><br>
+        g'(0) = D<sub>u</sub>f<br>
+        = <span id="ddtxt2"></span>
+      </div>
+      <div class="legend" style="margin-top:12px">
+        <span><i class="swatch" style="background:#475569"></i> g(s)</span>
+        <span><i class="swatch" style="background:#059669"></i> tangent at s = 0</span>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  const contour=document.getElementById('contour');
+  const ctx=contour.getContext('2d');
+  const slice=document.getElementById('slice');
+  const sctx=slice.getContext('2d');
+
+  const xs=document.getElementById('xslider');
+  const ys=document.getElementById('yslider');
+  const ts=document.getElementById('thetaslider');
+
+  const xval=document.getElementById('xval');
+  const yval=document.getElementById('yval');
+  const thetaval=document.getElementById('thetaval');
+  const gradtxt=document.getElementById('gradtxt');
+  const utxt=document.getElementById('utxt');
+  const ddtxt=document.getElementById('ddtxt');
+  const ddtxt2=document.getElementById('ddtxt2');
+
+  const align=document.getElementById('align');
+  const perp=document.getElementById('perp');
+  const reset=document.getElementById('reset');
+
+  const xmin=-3,xmax=3,ymin=-2.5,ymax=2.5;
+  const pad=55;
+
+  function f(x,y){return x*x+2*y*y;}
+
+  function values(){
+    const x=Number(xs.value);
+    const y=Number(ys.value);
+    const th=Number(ts.value)*Math.PI/180;
+    const u=[Math.cos(th),Math.sin(th)];
+    const grad=[2*x,4*y];
+    const dd=grad[0]*u[0]+grad[1]*u[1];
+    return{x,y,th,u,grad,dd};
+  }
+
+  function map(x,y){
+    const X=pad+(x-xmin)/(xmax-xmin)*(contour.width-2*pad);
+    const Y=contour.height-pad-(y-ymin)/(ymax-ymin)*(contour.height-2*pad);
+    return[X,Y];
+  }
+
+  function drawArrow(P,v,color,label,scale=1){
+    const mag=Math.hypot(v[0],v[1]);
+    if(mag<1e-10)return;
+
+    const start=map(P[0],P[1]);
+    const end=map(P[0]+v[0]*scale,P[1]+v[1]*scale);
+
+    ctx.beginPath();
+    ctx.moveTo(start[0],start[1]);
+    ctx.lineTo(end[0],end[1]);
+    ctx.strokeStyle=color;
+    ctx.lineWidth=4;
+    ctx.stroke();
+
+    const dx=end[0]-start[0],dy=end[1]-start[1];
+    const L=Math.hypot(dx,dy)||1;
+    const ux=dx/L,uy=dy/L,px=-uy,py=ux;
+    const sz=12;
+
+    ctx.beginPath();
+    ctx.moveTo(end[0],end[1]);
+    ctx.lineTo(end[0]-ux*sz+px*6,end[1]-uy*sz+py*6);
+    ctx.lineTo(end[0]-ux*sz-px*6,end[1]-uy*sz-py*6);
+    ctx.closePath();
+    ctx.fillStyle=color;
+    ctx.fill();
+
+    ctx.fillStyle=color;
+    ctx.font='bold 18px Arial';
+    ctx.fillText(label,end[0]+8,end[1]-8);
+  }
+
+  function drawContour(){
+    const V=values();
+    ctx.clearRect(0,0,contour.width,contour.height);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,contour.width,contour.height);
+
+    // axes
+    const x0=map(0,0)[0], y0=map(0,0)[1];
+    ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1.2;
+
+    ctx.beginPath();ctx.moveTo(pad,y0);ctx.lineTo(contour.width-pad,y0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x0,pad);ctx.lineTo(x0,contour.height-pad);ctx.stroke();
+
+    // grid + labels
+    ctx.font='13px Arial';ctx.fillStyle='#64748b';
+    for(let x=-3;x<=3;x++){
+      const P=map(x,0);
+      ctx.beginPath();ctx.moveTo(P[0],y0-4);ctx.lineTo(P[0],y0+4);ctx.stroke();
+      if(x!==0)ctx.fillText(String(x),P[0]-4,y0+18);
+    }
+    for(let y=-2;y<=2;y++){
+      const P=map(0,y);
+      ctx.beginPath();ctx.moveTo(x0-4,P[1]);ctx.lineTo(x0+4,P[1]);ctx.stroke();
+      if(y!==0)ctx.fillText(String(y),x0+8,P[1]+4);
+    }
+    ctx.fillText('x',contour.width-pad+12,y0+4);
+    ctx.fillText('y',x0+8,pad-12);
+
+    // elliptical level curves x^2+2y^2=c
+    const levels=[0.5,1,2,3,4,5,6,8,10,12,14];
+    levels.forEach((lev,i)=>{
+      const rx=Math.sqrt(lev);
+      const ry=Math.sqrt(lev/2);
+
+      ctx.beginPath();
+      let started=false;
+      for(let k=0;k<=240;k++){
+        const a=2*Math.PI*k/240;
+        const x=rx*Math.cos(a),y=ry*Math.sin(a);
+        if(x<xmin||x>xmax||y<ymin||y>ymax)continue;
+        const P=map(x,y);
+        if(!started){ctx.moveTo(P[0],P[1]);started=true;}
+        else ctx.lineTo(P[0],P[1]);
+      }
+      ctx.strokeStyle=i%2===0?'#94a3b8':'#cbd5e1';
+      ctx.lineWidth=1.3;
+      ctx.stroke();
+    });
+
+    const P=map(V.x,V.y);
+    ctx.beginPath();ctx.arc(P[0],P[1],7,0,Math.PI*2);
+    ctx.fillStyle='#111827';ctx.fill();
+
+    ctx.fillStyle='#111827';ctx.font='bold 15px Arial';
+    ctx.fillText('P',P[0]+9,P[1]-8);
+
+    // gradient scaled for display
+    const gm=Math.hypot(V.grad[0],V.grad[1]);
+    const gradScale=gm>0 ? 1.05/gm : 0;
+    drawArrow([V.x,V.y],V.grad,'#2563eb','∇f',gradScale);
+
+    // direction unit vector
+    drawArrow([V.x,V.y],V.u,'#dc2626','u',1.05);
+
+    // current level annotation
+    ctx.fillStyle='#64748b';ctx.font='14px Arial';
+    ctx.fillText('f(P) = '+f(V.x,V.y).toFixed(3),pad+8,pad+18);
+  }
+
+  function drawSlice(){
+    const V=values();
+    sctx.clearRect(0,0,slice.width,slice.height);
+    sctx.fillStyle='#fff';sctx.fillRect(0,0,slice.width,slice.height);
+
+    const left=55,right=25,top=25,bottom=45;
+    const smin=-1.8,smax=1.8;
+
+    function g(s){
+      return f(V.x+s*V.u[0],V.y+s*V.u[1]);
+    }
+
+    let gmin=Infinity,gmax=-Infinity;
+    const data=[];
+    for(let i=0;i<=240;i++){
+      const s=smin+(smax-smin)*i/240;
+      const z=g(s);
+      data.push([s,z]);
+      gmin=Math.min(gmin,z);gmax=Math.max(gmax,z);
+    }
+
+    const span=Math.max(1e-6,gmax-gmin);
+    gmin-=0.12*span;gmax+=0.12*span;
+
+    function smap(s,z){
+      return[
+        left+(s-smin)/(smax-smin)*(slice.width-left-right),
+        slice.height-bottom-(z-gmin)/(gmax-gmin)*(slice.height-top-bottom)
+      ];
+    }
+
+    // axes
+    const yAxis=smap(0,gmin)[0];
+    const xAxis=smap(smin,Math.max(gmin,Math.min(gmax,0)))[1];
+
+    sctx.strokeStyle='#cbd5e1';sctx.lineWidth=1.2;
+    sctx.beginPath();sctx.moveTo(left,slice.height-bottom);sctx.lineTo(slice.width-right,slice.height-bottom);sctx.stroke();
+
+    // g(s)
+    sctx.beginPath();
+    data.forEach(([s,z],i)=>{
+      const P=smap(s,z);
+      if(i===0)sctx.moveTo(P[0],P[1]);else sctx.lineTo(P[0],P[1]);
+    });
+    sctx.strokeStyle='#475569';sctx.lineWidth=2.5;sctx.stroke();
+
+    // tangent at s=0: g(0)+dd*s
+    const g0=g(0);
+    const a=-1.35,b=1.35;
+    const A=smap(a,g0+V.dd*a);
+    const B=smap(b,g0+V.dd*b);
+    sctx.beginPath();sctx.moveTo(A[0],A[1]);sctx.lineTo(B[0],B[1]);
+    sctx.strokeStyle='#059669';sctx.lineWidth=2.5;sctx.stroke();
+
+    const P0=smap(0,g0);
+    sctx.beginPath();sctx.arc(P0[0],P0[1],6,0,Math.PI*2);
+    sctx.fillStyle='#111827';sctx.fill();
+
+    sctx.fillStyle='#64748b';sctx.font='14px Arial';
+    sctx.fillText('s',slice.width-right+5,slice.height-bottom+5);
+    sctx.fillText('g(s)',left-5,top-7);
+    sctx.fillText('0',P0[0]-4,slice.height-bottom+18);
+  }
+
+  function update(){
+    const V=values();
+    xval.textContent=V.x.toFixed(2);
+    yval.textContent=V.y.toFixed(2);
+    thetaval.textContent=(V.th*180/Math.PI).toFixed(1);
+
+    gradtxt.textContent=`(${V.grad[0].toFixed(3)}, ${V.grad[1].toFixed(3)})`;
+    utxt.textContent=`(${V.u[0].toFixed(3)}, ${V.u[1].toFixed(3)})`;
+    ddtxt.textContent=V.dd.toFixed(4);
+    ddtxt2.textContent=V.dd.toFixed(4);
+
+    drawContour();
+    drawSlice();
+  }
+
+  [xs,ys,ts].forEach(el=>el.addEventListener('input',update));
+
+  align.addEventListener('click',()=>{
+    const V=values();
+    const a=Math.atan2(V.grad[1],V.grad[0])*180/Math.PI;
+    ts.value=(a+360)%360;
+    update();
+  });
+
+  perp.addEventListener('click',()=>{
+    const V=values();
+    const a=Math.atan2(V.grad[1],V.grad[0])*180/Math.PI+90;
+    ts.value=(a+360)%360;
+    update();
+  });
+
+  reset.addEventListener('click',()=>{
+    xs.value='1.2';ys.value='0.8';ts.value='35';
+    update();
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
