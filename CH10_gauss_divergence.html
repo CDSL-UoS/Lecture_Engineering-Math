@@ -1,0 +1,39 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gauss 발산정리</title><style>
+:root{--bg:#ffffff;--panel:#ffffff;--ink:#111827;--muted:#4b5563;--accent:#0ea5e9;--accent2:#7c3aed;--good:#16a34a;--warn:#d97706;--line:#d1d5db}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Noto Sans KR,Arial,sans-serif;background:#ffffff;color:var(--ink)}
+header{padding:22px 24px 10px;max-width:1200px;margin:auto}
+h1{font-size:clamp(24px,3vw,38px);margin:0 0 6px} h2{margin:0 0 12px} p{color:var(--muted);line-height:1.55}
+.wrap{max-width:1200px;margin:auto;padding:12px 24px 30px}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,.85fr);gap:18px}
+.card{background:#ffffff;border:1px solid var(--line);border-radius:8px;padding:16px;}
+canvas{width:100%;height:auto;display:block;border-radius:8px;background:#ffffff;border:1px solid #d1d5db}
+label{display:block;font-size:13px;color:#374151;margin:12px 0 5px}
+input[type=range], select{width:100%}
+button{cursor:pointer;background:#f3f4f6;color:#111827;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;margin:4px 5px 4px 0}
+button:hover{background:#e5e7eb}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.kpi div{background:#f8fafc;border:1px solid #d1d5db;border-radius:8px;padding:10px}
+.kpi b{display:block;font-size:19px;color:#111827}
+.eq{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f8fafc;border:1px solid #d1d5db;border-radius:8px;padding:12px;line-height:1.6;color:#111827;overflow:auto}
+.note{font-size:13px;color:#4b5563}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#374151;margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}}
+a{color:#0369a1}
+</style></head><body>
+<header><h1>Gauss의 발산정리</h1><p>체적 적분과 표면 flux의 관계를 확인합니다.</p></header>
+<div class="wrap"><div class="grid"><div class="card"><canvas id="cv" width="760" height="520"></canvas></div>
+<div class="card"><label>구의 반지름 R</label><input id="R" type="range" min=".5" max="2.0" value="1.2" step=".01"><label>벡터장 세기 a</label><input id="a" type="range" min=".25" max="2" value="1" step=".05">
+<div class="kpi"><div>표면 flux<b id="flux"></b></div><div>체적 적분<b id="vol"></b></div></div>
+<div class="eq">F=a(x,y,z)<br>div F = 3a<br>∯ F·n dA = 4πaR³<br>∭ div F dV = 4πaR³</div><p class="note">화살표가 바깥쪽을 향하는 모습과 양의 발산을 연결해 보세요.</p></div></div></div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');function v(id){return +document.getElementById(id).value}
+function draw(){let R=v('R'),a=v('a'),cx=cv.width/2,cy=cv.height/2,rx=R*140,ry=R*105;ctx.clearRect(0,0,cv.width,cv.height);
+let grd=ctx.createRadialGradient(cx-50,cy-70,15,cx,cy,rx);grd.addColorStop(0,'rgba(124,58,237,.18)');grd.addColorStop(1,'rgba(14,165,233,.04)');ctx.fillStyle=grd;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,7);ctx.fill();ctx.strokeStyle='#6ee7ff';ctx.lineWidth=3;ctx.stroke();
+ctx.strokeStyle='rgba(17,24,39,.18)';ctx.beginPath();ctx.ellipse(cx,cy,rx,ry*.28,0,0,7);ctx.stroke();
+for(let k=0;k<28;k++){let th=2*Math.PI*k/28,ph=((k%7)-3)/3*.8,x=Math.cos(th)*Math.cos(ph),y=Math.sin(ph),z=Math.sin(th)*Math.cos(ph);let X=cx+rx*x,Y=cy-ry*y,scale=.13*(.6+.4*z);ctx.strokeStyle='#ffcc66';ctx.lineWidth=1.7;ctx.beginPath();ctx.moveTo(X,Y);ctx.lineTo(X+45*scale*x,Y-45*scale*y);ctx.stroke()}
+let ans=4*Math.PI*a*R**3;document.getElementById('flux').textContent=ans.toFixed(4);document.getElementById('vol').textContent=ans.toFixed(4);ctx.fillStyle='#111827';ctx.font='15px system-ui';ctx.fillText('div F = '+(3*a).toFixed(2),20,28)}
+['R','a'].forEach(id=>document.getElementById(id).oninput=draw);draw();
+</script>
+</body></html>

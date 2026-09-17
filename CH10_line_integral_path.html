@@ -1,0 +1,49 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>선적분과 경로 의존성</title><style>
+:root{--bg:#ffffff;--panel:#ffffff;--ink:#111827;--muted:#4b5563;--accent:#0ea5e9;--accent2:#7c3aed;--good:#16a34a;--warn:#d97706;--line:#d1d5db}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Noto Sans KR,Arial,sans-serif;background:#ffffff;color:var(--ink)}
+header{padding:22px 24px 10px;max-width:1200px;margin:auto}
+h1{font-size:clamp(24px,3vw,38px);margin:0 0 6px} h2{margin:0 0 12px} p{color:var(--muted);line-height:1.55}
+.wrap{max-width:1200px;margin:auto;padding:12px 24px 30px}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,.85fr);gap:18px}
+.card{background:#ffffff;border:1px solid var(--line);border-radius:8px;padding:16px;}
+canvas{width:100%;height:auto;display:block;border-radius:8px;background:#ffffff;border:1px solid #d1d5db}
+label{display:block;font-size:13px;color:#374151;margin:12px 0 5px}
+input[type=range], select{width:100%}
+button{cursor:pointer;background:#f3f4f6;color:#111827;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;margin:4px 5px 4px 0}
+button:hover{background:#e5e7eb}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.kpi div{background:#f8fafc;border:1px solid #d1d5db;border-radius:8px;padding:10px}
+.kpi b{display:block;font-size:19px;color:#111827}
+.eq{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f8fafc;border:1px solid #d1d5db;border-radius:8px;padding:12px;line-height:1.6;color:#111827;overflow:auto}
+.note{font-size:13px;color:#4b5563}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#374151;margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}}
+a{color:#0369a1}
+</style></head><body>
+<header><h1>선적분과 경로 의존성</h1><p>같은 A→B라도 경로에 따라 <b>∫ F·dr</b>가 달라질 수 있습니다.</p></header>
+<div class="wrap"><div class="grid"><div class="card"><canvas id="cv" width="760" height="520"></canvas><div class="legend"><span><i class="dot" style="background:#6ee7ff"></i>경로 1: 직선</span><span><i class="dot" style="background:#a78bfa"></i>경로 2: 곡선</span></div></div>
+<div class="card"><label>벡터장</label><select id="field"><option value="rot">비보존장 F=(-y, x)</option><option value="cons">보존장 F=(2x, 2y)</option></select>
+<label>애니메이션 진행</label><input id="t" type="range" min="0" max="1" step="0.002" value="0"><div><button id="play">▶ 재생/정지</button><button id="reset">↺ 초기화</button></div>
+<div class="kpi"><div>경로 1 적분<b id="w1">0</b></div><div>경로 2 적분<b id="w2">0</b></div></div>
+<div class="eq" id="eq"></div><p class="note">비보존장에서는 출발점과 도착점만으로 선적분이 결정되지 않습니다. 보존장으로 바꾸면 두 값이 일치합니다.</p></div></div></div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),fld=document.getElementById('field'),slider=document.getElementById('t');
+let playing=false; const A=[-1.7,-1.2],B=[1.7,1.25];
+function F(x,y){return fld.value==='rot'?[-y,x]:[2*x,2*y]}
+function p1(s){return [A[0]+(B[0]-A[0])*s,A[1]+(B[1]-A[1])*s]}
+function p2(s){let x=A[0]+(B[0]-A[0])*s,y=A[1]+(B[1]-A[1])*s+1.65*Math.sin(Math.PI*s);return [x,y]}
+function integ(fn,T){let n=900,N=Math.max(1,Math.floor(n*T)),sum=0,p=fn(0);for(let i=1;i<=N;i++){let s=T*i/N,q=fn(s),m=[(p[0]+q[0])/2,(p[1]+q[1])/2],f=F(m[0],m[1]);sum+=f[0]*(q[0]-p[0])+f[1]*(q[1]-p[1]);p=q}return sum}
+function map(x,y){return [cv.width/2+x*125,cv.height/2-y*125]}
+function arrow(x,y,u,v){let [X,Y]=map(x,y),m=Math.hypot(u,v)||1,s=.28/m;u*=s;v*=s;let [X2,Y2]=map(x+u,y+v);ctx.strokeStyle='#64748b';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X,Y);ctx.lineTo(X2,Y2);ctx.stroke()}
+function path(fn,color){ctx.strokeStyle=color;ctx.lineWidth=4;ctx.beginPath();for(let i=0;i<=180;i++){let q=map(...fn(i/180));i?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.stroke()}
+function draw(){ctx.clearRect(0,0,cv.width,cv.height);for(let x=-2.5;x<=2.5;x+=.5)for(let y=-1.8;y<=1.8;y+=.5)arrow(x,y,...F(x,y));path(p1,'#6ee7ff');path(p2,'#a78bfa');let T=+slider.value;
+for(let item of [[p1,'#6ee7ff'],[p2,'#a78bfa']]){let p=item[0](T),q=map(...p);ctx.fillStyle=item[1];ctx.beginPath();ctx.arc(...q,7,0,7);ctx.fill()}
+for(let item of [[A,'A'],[B,'B']]){let q=map(...item[0]);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(...q,6,0,7);ctx.fill();ctx.fillText(item[1],q[0]+9,q[1]-9)}
+document.getElementById('w1').textContent=integ(p1,T).toFixed(3);document.getElementById('w2').textContent=integ(p2,T).toFixed(3);
+document.getElementById('eq').innerHTML=fld.value==='rot'?'F=(-y,x), curl F = 2 ≠ 0<br>⇒ 일반적으로 경로 의존':'F=(2x,2y)=∇(x²+y²)<br>⇒ 경로 독립'}
+function tick(){if(playing){let t=Math.min(1,+slider.value+.0035);slider.value=t;if(t>=1)playing=false}draw();requestAnimationFrame(tick)}requestAnimationFrame(tick);
+fld.onchange=()=>{slider.value=0};slider.oninput=draw;document.getElementById('play').onclick=()=>playing=!playing;document.getElementById('reset').onclick=()=>{playing=false;slider.value=0;draw()};
+</script>
+</body></html>

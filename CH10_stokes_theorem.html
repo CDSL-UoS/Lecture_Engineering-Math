@@ -1,0 +1,43 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Stokes 정리</title><style>
+:root{--bg:#ffffff;--panel:#ffffff;--ink:#111827;--muted:#4b5563;--accent:#0ea5e9;--accent2:#7c3aed;--good:#16a34a;--warn:#d97706;--line:#d1d5db}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Noto Sans KR,Arial,sans-serif;background:#ffffff;color:var(--ink)}
+header{padding:22px 24px 10px;max-width:1200px;margin:auto}
+h1{font-size:clamp(24px,3vw,38px);margin:0 0 6px} h2{margin:0 0 12px} p{color:var(--muted);line-height:1.55}
+.wrap{max-width:1200px;margin:auto;padding:12px 24px 30px}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,.85fr);gap:18px}
+.card{background:#ffffff;border:1px solid var(--line);border-radius:8px;padding:16px;}
+canvas{width:100%;height:auto;display:block;border-radius:8px;background:#ffffff;border:1px solid #d1d5db}
+label{display:block;font-size:13px;color:#374151;margin:12px 0 5px}
+input[type=range], select{width:100%}
+button{cursor:pointer;background:#f3f4f6;color:#111827;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;margin:4px 5px 4px 0}
+button:hover{background:#e5e7eb}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.kpi div{background:#f8fafc;border:1px solid #d1d5db;border-radius:8px;padding:10px}
+.kpi b{display:block;font-size:19px;color:#111827}
+.eq{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f8fafc;border:1px solid #d1d5db;border-radius:8px;padding:12px;line-height:1.6;color:#111827;overflow:auto}
+.note{font-size:13px;color:#4b5563}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#374151;margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}}
+a{color:#0369a1}
+</style></head><body>
+<header><h1>Stokes 정리</h1><p>경계선 선적분과 곡면 위 curl flux의 관계를 확인합니다.</p></header>
+<div class="wrap"><div class="grid"><div class="card"><canvas id="cv" width="760" height="520"></canvas></div>
+<div class="card"><label>곡면 모양</label><select id="shape"><option value="flat">평면 원판</option><option value="dome">볼록한 돔</option><option value="saddle">안장형 곡면</option></select>
+<label>경계 반지름 R</label><input id="R" type="range" min=".6" max="1.9" value="1.25" step=".01"><label>회전 세기 c</label><input id="c" type="range" min=".3" max="2" value="1" step=".05">
+<div class="kpi"><div>∮<sub>C</sub>F·dr<b id="line"></b></div><div>∬<sub>S</sub>(curl F)·n dA<b id="surf"></b></div></div>
+<div class="eq">F=(-cy/2, cx/2, 0)<br>curl F=(0,0,c)<br>두 값 = cπR²</div><p class="note">곡면의 모양을 바꿔도 경계가 같고 orientation이 일관되면 Stokes 정리는 그대로 성립합니다.</p></div></div></div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');function v(id){return +document.getElementById(id).value}
+function zfun(x,y,R,s){let r2=(x*x+y*y)/(R*R);if(s==='dome')return .65*(1-r2);if(s==='saddle')return .5*(x*x-y*y)/(R*R);return 0}
+function proj(x,y,z){return [cv.width/2+145*x-48*y,cv.height/2+75*y-100*z]}
+function draw(){let R=v('R'),c=v('c'),s=document.getElementById('shape').value;ctx.clearRect(0,0,cv.width,cv.height);
+for(let rr=0;rr<=1.001;rr+=.12){ctx.beginPath();for(let k=0;k<=120;k++){let th=2*Math.PI*k/120,x=R*rr*Math.cos(th),y=R*rr*Math.sin(th),q=proj(x,y,zfun(x,y,R,s));k?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.strokeStyle='rgba(14,165,233,.22)';ctx.stroke()}
+for(let th=0;th<Math.PI*2;th+=Math.PI/10){ctx.beginPath();for(let rr=0;rr<=1;rr+=.03){let x=R*rr*Math.cos(th),y=R*rr*Math.sin(th),q=proj(x,y,zfun(x,y,R,s));rr?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.strokeStyle='rgba(124,58,237,.20)';ctx.stroke()}
+ctx.beginPath();for(let k=0;k<=180;k++){let th=2*Math.PI*k/180,x=R*Math.cos(th),y=R*Math.sin(th),q=proj(x,y,zfun(x,y,R,s));k?ctx.lineTo(...q):ctx.moveTo(...q)}ctx.strokeStyle='#ffcc66';ctx.lineWidth=4;ctx.stroke();
+let ans=c*Math.PI*R*R;document.getElementById('line').textContent=ans.toFixed(4);document.getElementById('surf').textContent=ans.toFixed(4);
+ctx.fillStyle='#111827';ctx.font='15px system-ui';let names={flat:'평면',dome:'돔',saddle:'안장'};ctx.fillText('surface = '+names[s],20,28);ctx.fillText('curl F = (0,0,'+c.toFixed(2)+')',20,50)}
+['R','c'].forEach(id=>document.getElementById(id).oninput=draw);document.getElementById('shape').onchange=draw;draw();
+</script>
+</body></html>
